@@ -3,9 +3,13 @@ package io.github.springauth.web.controller;
 import java.util.List;
 import java.util.Set;
 
+import io.github.springauth.core.model.Role;
 import jakarta.validation.constraints.NotBlank;
 import io.github.springauth.core.service.RoleService;
+import io.github.springauth.web.authz.WildcardPermissions;
 import io.github.springauth.web.dto.AuthResponses;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -79,7 +83,9 @@ public class RoleController {
     @PostMapping
     @Operation(summary = "Create a role", description = "Creates a role with its initial permission set. Example: {\"code\":\"APP_USER\",\"name\":\"Application user\",\"permissions\":[\"payments:read\"]}.")
     @PreAuthorize("hasAuthority('" + AuthPermissions.ROLES_WRITE + "')")
-    public ResponseEntity<AuthResponses.RoleResponse> create(@RequestBody CreateRole request) {
+    public ResponseEntity<AuthResponses.RoleResponse> create(@RequestBody CreateRole request,
+                                                             Authentication authentication) {
+        requireWildcardGrantAuthority(request.permissions(), authentication);
         return ResponseEntity.ok(AuthResponses.RoleResponse.from(roleService.createGenerated(
                 request.name(), request.description(), request.permissions())));
     }
@@ -98,9 +104,18 @@ public class RoleController {
     @PreAuthorize("hasAuthority('" + AuthPermissions.ROLES_WRITE + "')")
     public ResponseEntity<AuthResponses.RoleResponse> replacePermissions(
             @PathVariable String code,
-            @RequestBody ReplacePermissions request) {
+            @RequestBody ReplacePermissions request,
+            Authentication authentication) {
+        requireWildcardGrantAuthority(request.permissions(), authentication);
         return ResponseEntity.ok(AuthResponses.RoleResponse.from(
                 roleService.replacePermissions(code, request.permissions())));
+    }
+
+    private void requireWildcardGrantAuthority(Set<String> permissions, Authentication authentication) {
+        if (permissions != null && permissions.contains(Role.WILDCARD_PERMISSION)
+                && !WildcardPermissions.holdsWildcard(authentication)) {
+            throw new AccessDeniedException("Seul un administrateur global peut attribuer system:root");
+        }
     }
 
     @PostMapping("/{code}:archive")
