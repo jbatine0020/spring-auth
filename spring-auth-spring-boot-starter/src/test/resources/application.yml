@@ -1,0 +1,33 @@
+spring:
+  flyway:
+    enabled: false
+  datasource:
+    url: jdbc:h2:mem:springauth;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      # Fast tests derive the schema on H2. postgresTest uses real migrations and validation.
+      ddl-auto: create-drop
+    open-in-view: false
+
+spring-auth:
+  jpa:
+    # Enabled by postgresTest, which uses a real PostgreSQL container.
+    migrate: false
+  # No crypto master key here on purpose. A committed base64 key looks exactly like a leaked
+  # secret to a scanner, and copying one out of a repository into a real deployment is a mistake
+  # waiting to happen. The tests generate a fresh key per run through @DynamicPropertySource.
+  jwt:
+    issuer: spring-auth-test
+    audience: spring-auth-test
+  password:
+    # Cost 4 keeps the suite fast; production stays at 12.
+    bcrypt-cost: 4
+  web:
+    base-path: /api/v1/auth
+
+logging:
+  level:
+    io.github.springauth: INFO

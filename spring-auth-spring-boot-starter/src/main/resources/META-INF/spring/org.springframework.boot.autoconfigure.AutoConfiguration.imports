@@ -1,0 +1,5 @@
+io.github.springauth.autoconfigure.SpringAuthRedisAutoConfiguration
+io.github.springauth.autoconfigure.SpringAuthFlywayAutoConfiguration
+io.github.springauth.autoconfigure.SpringAuthJpaAutoConfiguration
+io.github.springauth.autoconfigure.SpringAuthAutoConfiguration
+io.github.springauth.autoconfigure.SpringAuthWebAutoConfiguration
