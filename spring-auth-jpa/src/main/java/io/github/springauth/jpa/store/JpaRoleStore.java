@@ -63,6 +63,27 @@ public class JpaRoleStore implements RoleStore {
     }
 
     @Override
+    public RoleStore.Page search(String search, String status, int page, int size, String sort, boolean ascending) {
+        String term = search == null ? "" : search.trim().toLowerCase(java.util.Locale.ROOT);
+        // Escape LIKE metacharacters: user searches are literal strings.
+        String pattern = "%" + term.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
+        var roleStatus = status == null || status.isBlank() ? null
+                : io.github.springauth.core.model.RoleStatus.valueOf(status.toUpperCase(java.util.Locale.ROOT));
+        String where = " where lower(concat(r.code, ' ', r.name, ' ', coalesce(r.description, ''))) like :term escape '!'";
+        if (roleStatus != null) where += " and r.status = :status";
+        String column = switch (sort == null ? "code" : sort) { case "name" -> "lower(r.name)"; case "status" -> "r.status"; default -> "r.code"; };
+        String order = " order by " + column + (ascending ? " asc" : " desc") + ", r.code asc";
+        var count = entityManager.createQuery("select count(r) from AuthRoleEntity r" + where, Long.class).setParameter("term", pattern);
+        var codes = entityManager.createQuery("select r.code from AuthRoleEntity r" + where + order, String.class).setParameter("term", pattern);
+        if (roleStatus != null) { count.setParameter("status", roleStatus); codes.setParameter("status", roleStatus); }
+        long total = count.getSingleResult();
+        var pageCodes = codes.setFirstResult(Math.multiplyExact(page, size)).setMaxResults(size).getResultList();
+        // Fetch collections only for this page; paginating a collection fetch join would page in memory.
+        var roles = findByCodes(pageCodes).stream().collect(java.util.stream.Collectors.toMap(Role::getCode, role -> role));
+        return new RoleStore.Page(total, pageCodes.stream().map(roles::get).toList());
+    }
+
+    @Override
     public boolean existsByCode(String code) {
         return entityManager.createQuery(
                         "select count(r) from AuthRoleEntity r where r.code = :code", Long.class)

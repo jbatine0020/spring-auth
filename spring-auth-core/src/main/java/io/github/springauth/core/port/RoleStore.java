@@ -19,6 +19,12 @@ public interface RoleStore {
 
     List<Role> findAll();
 
+    /** Filter, count and paginate in the persistence adapter. */
+    Page search(String search, String status, int page, int size, String sort, boolean ascending);
+
+    record Page(long total, List<Role> list) {}
+
+
     boolean existsByCode(String code);
 
     /** Returns the next unique functional code for a user-created profile. */

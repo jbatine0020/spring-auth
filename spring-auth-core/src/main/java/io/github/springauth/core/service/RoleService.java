@@ -4,8 +4,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
-import java.util.Comparator;
-import java.util.Locale;
 
 import io.github.springauth.core.error.RoleException;
 import io.github.springauth.core.model.Role;
@@ -99,26 +97,10 @@ public class RoleService {
 
     @Transactional(readOnly = true)
     public RolePage search(String search, String status, int page, int size, String sort, boolean ascending) {
-        String query = search == null ? "" : search.trim().toLowerCase(Locale.ROOT);
-        List<Role> filtered = roleStore.findAll().stream()
-                .filter(role -> query.isBlank() || (role.getCode() + " " + role.getName() + " "
-                        + (role.getDescription() == null ? "" : role.getDescription()))
-                        .toLowerCase(Locale.ROOT).contains(query))
-                .filter(role -> status == null || status.isBlank() || role.getStatus().name().equalsIgnoreCase(status))
-                .sorted(roleComparator(sort, ascending))
-                .toList();
-        int from = Math.min(page * size, filtered.size());
-        int to = Math.min(from + size, filtered.size());
-        return new RolePage(page, size, filtered.size(), filtered.subList(from, to));
-    }
-
-    private Comparator<Role> roleComparator(String sort, boolean ascending) {
-        Comparator<Role> comparator = switch (sort == null ? "code" : sort) {
-            case "name" -> Comparator.comparing(Role::getName, String.CASE_INSENSITIVE_ORDER);
-            case "status" -> Comparator.comparing(role -> role.getStatus().name());
-            default -> Comparator.comparing(Role::getCode, String.CASE_INSENSITIVE_ORDER);
-        };
-        return ascending ? comparator : comparator.reversed();
+        int safePage = Math.max(0, Math.min(page, 1000000));
+        int safeSize = Math.max(1, Math.min(size, 100));
+        var result = roleStore.search(search, status, safePage, safeSize, sort, ascending);
+        return new RolePage(safePage, safeSize, result.total(), result.list());
     }
 
     public record RolePage(int page, int size, long countAll, List<Role> list) {

@@ -307,6 +307,30 @@ public final class InMemoryStores {
         }
 
         @Override
+        public RoleStore.Page search(String search, String status, int page, int size, String sort, boolean ascending) {
+        String query = search == null ? "" : search.trim().toLowerCase(java.util.Locale.ROOT);
+        List<Role> filtered = findAll().stream()
+                .filter(role -> query.isBlank() || (role.getCode() + " " + role.getName() + " "
+                        + (role.getDescription() == null ? "" : role.getDescription()))
+                        .toLowerCase(java.util.Locale.ROOT).contains(query))
+                .filter(role -> status == null || status.isBlank() || role.getStatus().name().equalsIgnoreCase(status))
+                .sorted(roleComparator(sort, ascending))
+                .toList();
+        int from = Math.min(page * size, filtered.size());
+        int to = Math.min(from + size, filtered.size());
+        return new RoleStore.Page(filtered.size(), filtered.subList(from, to));
+    }
+
+    private java.util.Comparator<Role> roleComparator(String sort, boolean ascending) {
+        java.util.Comparator<Role> comparator = switch (sort == null ? "code" : sort) {
+            case "name" -> java.util.Comparator.comparing(Role::getName, String.CASE_INSENSITIVE_ORDER);
+            case "status" -> java.util.Comparator.comparing(role -> role.getStatus().name());
+            default -> java.util.Comparator.comparing(Role::getCode, String.CASE_INSENSITIVE_ORDER);
+        };
+        return ascending ? comparator : comparator.reversed();
+    }
+
+        @Override
         public boolean existsByCode(String code) {
             return byCode.containsKey(code);
         }
